@@ -1,0 +1,157 @@
+## TRABAJO DE CAMPO - ANALISIS DE ESTADOS CONTABLE DE MERCADO PAGO
+
+Este trabajo de analisis de los estados contables de la empresa Mercado Pago, se basa en los Estados financieros de la empresa MERCADO PAGO SERVICIOS DE PROCESAMIENTO S.R.L, mejor conocida como Mercado Pago controlada por MercadoPago, LLC que asi mismo es controlada por MercadoLibre, Inc. ("Meli Inc.").
+
+## 1. Modulos
+pip install pandas numpy
+pip install matplotlib
+
+# Importación Modulos
+
+import pandas as pd
+import numpy as np
+import pandas.testing as tm
+from pandas.core.frame import DataFrame
+import datetime as dt
+import matplotlib.pyplot as plt
+
+## 2. Dataframe
+
+# Dataframe from csv 
+
+df_raw = pd.read_csv(r'C:\Users\Victo\OneDrive\Documentos\Capacitaciones\python\estados_financieros_integrado(1).csv', )
+
+df = df_raw.copy()
+
+df.head()
+df.info()
+df.describe()
+
+# Analyze duplicated 
+# df.duplicated().sum()
+# How to delete duplicated df.drop_duplicates() o df.drop_duplicates(subset=['col1', 'col2'])
+
+df[df.duplicated()]
+
+#Analize null and Nan
+
+df.isnull().sum()
+
+# Fill 55 records from value column and 162 records from notes column with new values
+
+df['value'] = df['value'].fillna(0)
+
+df['notes'] = df['notes'].fillna('-')
+
+df.head()
+# df.isnull().sum()
+
+# Change data type from value
+
+df['value'] = df['value'].astype('int64')
+
+df['category'] = df['category'].astype('category')
+
+df['date'] = df['date'].astype('string')
+
+df['date'] = df['date'].str.replace('.', '-')
+
+df.head()
+
+# change type date column 
+
+df['date'] = pd.to_datetime(df['date'], format='%d-%m-%Y' )
+
+# Delete spaces
+
+df['category'].str.strip()
+
+# Flag Total column
+
+df['flag_total'] = np.where( 
+        df['accounts'].str.contains('Total') & df['category'].str.contains('Activo')  
+       | (df['accounts'].str.contains('Total') & df['category'].str.contains('Pasivo') ) 
+       | df['accounts'].str.contains('Total del patrimonio y del pasivo', case=True), 1,0)
+
+#Change name of accounts in order to apply dim_accounts
+
+df.loc[(df['accounts'] == 'Otros creditos') &  (df['subcategory'] == 'Activo No Corriente'), 'accounts' ] = 'Otros creditos ANC'
+
+df.loc[(df['accounts'] == 'Creditos con entidades de cobro') &  (df['subcategory'] == 'Activo No Corriente'),'accounts' ] = 'Creditos con entidades de cobro ANC'
+
+df.loc[(df['accounts'] == 'Otros creditos') &  (df['subcategory'] == 'Activo Corriente'), 'accounts'] = 'Otros creditos AC'
+
+df.loc[(df['accounts'] == 'Creditos con entidades de cobro') & (df['subcategory'] == 'Activo Corriente'), 'accounts'] = 'Creditos con entidades de cobro AC'
+
+df.loc[(df['accounts'] == 'Remuneraciones y cargas sociales') & (df['subcategory'] == 'Pasivo No Corriente'), 'accounts'] = 'Remuneraciones y cargas sociales PNC'
+
+df.loc[(df['accounts'] == 'Deudas comerciales') & (df['subcategory'] == 'Pasivo No Corriente'), 'accounts'] = 'Deudas comerciales PNC'
+
+df.loc[(df['accounts'] == 'Remuneraciones y cargas sociales') &  (df['subcategory'] == 'Pasivo Corriente'), 'accounts'] = 'Remuneraciones y cargas sociales PC'
+
+df.loc[(df['accounts'] == 'Deudas comerciales') & (df['subcategory'] == 'Pasivo Corriente'), 'accounts'] = 'Deudas comerciales PC'
+
+#New Column Balance
+
+conditions = [
+    df['date'] == pd.Timestamp('2024-01-01'),
+    df['date'] == pd.Timestamp('2024-12-31'),
+    df['date'] == pd.Timestamp('2025-12-31')
+]
+
+results = [
+    'Saldo Inicial',
+    'Saldo Final',
+    'Saldo Final'
+]
+
+df['balance'] = np.select(conditions,results, default= 'Movimientos')
+
+#Export data
+df.to_csv("estadosfinancieros_2")
+
+## 3. Calendar table
+
+# Calendar script 
+
+# Modulo 
+import pandas as pd
+import locale
+locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
+
+
+# Start y End date
+start_date = pd.Timestamp('2010-01-01')
+end_date = pd.Timestamp.today().normalize()  # Solo fecha, sin hora
+
+# date list
+df_calendar = pd.DataFrame({'Date': pd.date_range(start=start_date, end=end_date, freq='D')})
+
+# IdDate (YYYYMMDD as a number)
+df_calendar['IdDate'] = df_calendar['Date'].dt.strftime('%Y%m%d').astype(int)
+
+# Year
+df_calendar['Year'] = df_calendar['Date'].dt.year
+
+# Quarter (Q1, Q2, Q3, Q4)
+df_calendar['Quarter'] = 'Q' + df_calendar['Date'].dt.quarter.astype(str)
+
+# IdMonth
+df_calendar['IdMonth'] = df_calendar['Date'].dt.month
+
+# Month in spanish
+df_calendar['Month'] = df_calendar['Date'].dt.strftime('%B')  # Modulo 
+
+# Period (YYYYMM)
+df_calendar['Period'] = df_calendar['Year'].astype(str) + df_calendar['IdMonth'].astype(str).str.zfill(2)
+
+# QuarterYear (QYYYY)
+df_calendar['QuarterYear'] = df_calendar['Year'].astype(str) + df_calendar['Quarter']
+
+# Day
+df_calendar['Day'] = df_calendar['Date'].dt.day
+
+# Day Name
+df_calendar['Day_Name'] = df_calendar['Date'].dt.strftime('%A')  # Modulo
+
+print(df_calendar)
